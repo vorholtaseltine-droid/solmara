@@ -50,6 +50,7 @@
     shootPressed: false, mouseDown: false, dragDX: 0, dragDY: 0,
   };
   var dragging = false, lastMX = 0, lastMY = 0;
+  G.input = input; // test hook: lets Playwright read held keys
 
   function keyDown(e) {
     if (e.repeat) return;

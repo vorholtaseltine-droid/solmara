@@ -164,6 +164,13 @@
       var pLat = c.axis === 'x' ? Math.abs(p.z - c.z) : Math.abs(p.x - c.x);
       if (pAlong > 0 && pAlong < ahead && pLat < 3) ahead = pAlong;
     }
+    // Stop for the player on foot too (a car driving through them looks broken).
+    var pl = G.player;
+    if (pl && !pl.inCar && G.state === 'playing') {
+      var plAlong = c.axis === 'x' ? (pl.x - c.x) * c.dir : (pl.z - c.z) * c.dir;
+      var plLat = c.axis === 'x' ? Math.abs(pl.z - c.z) : Math.abs(pl.x - c.x);
+      if (plAlong > 0 && plAlong < ahead && plLat < 3) ahead = plAlong;
+    }
     return ahead;
   };
 
@@ -216,6 +223,13 @@
     var i = this.list.indexOf(c);
     if (i !== -1) this.list.splice(i, 1);
     this.scene.remove(c.mesh.group);
+  };
+
+  // Take a car out of traffic control WITHOUT removing its mesh from the
+  // scene: the player is about to drive it, so it must stay visible.
+  Traffic.prototype.takeCar = function (c) {
+    var i = this.list.indexOf(c);
+    if (i !== -1) this.list.splice(i, 1);
   };
 
   // ---- Police --------------------------------------------------------------
@@ -289,7 +303,13 @@
       while (diff > Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
       p.yaw += Math.max(-2.4 * dt, Math.min(2.4 * dt, diff));
-      p.speed = Math.min(p.speed + 10 * dt, maxSpeed);
+      if (!player.inCar && dist < 5) {
+        // Pull up beside the on-foot player and stop, so the bust can
+        // actually happen instead of the cop driving straight through.
+        p.speed = Math.max(0, p.speed - 24 * dt);
+      } else {
+        p.speed = Math.min(p.speed + 10 * dt, maxSpeed);
+      }
       var f2 = carForward(p);
       var nx = p.x + f2.x * p.speed * dt;
       var nz = p.z + f2.z * p.speed * dt;

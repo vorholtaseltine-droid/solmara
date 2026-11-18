@@ -211,7 +211,7 @@
 
   Player.prototype.enterCar = function (entry) {
     var c = entry.car;
-    G.traffic.removeCar(c); // the car leaves traffic control either way
+    G.traffic.takeCar(c); // leaves traffic control, mesh stays in the scene
     if (entry.kind === 'traffic') {
       this.addWanted(1);
       if (G.hud) G.hud.say('Car stolen! The owner called it in.');
@@ -258,7 +258,12 @@
         if (this.wanted === 0 && G.hud) G.hud.say('Mara: Heat is off. You are clean, Rook.');
       }
     }
-    if (this.bustTimer > 0) this.bustTimer = Math.max(0, this.bustTimer - dt * 0.5);
+    // The bust timer only decays while no cop is touching the player.
+    // (policeContact sets _contact; it is cleared here once per frame.)
+    if (this.bustTimer > 0 && !this._contact) {
+      this.bustTimer = Math.max(0, this.bustTimer - dt * 0.5);
+    }
+    this._contact = false;
 
     if (this.inCar && this.car) {
       var drive = G.drivePlayerCar(this.car, input, dt);
@@ -310,8 +315,18 @@
     if (input.punchPressed) this.punch();
     if (input.shootPressed || input.mouseDown) this.shoot(camera);
     if (input.ePressed) {
-      var entry = this.nearestEnterable();
-      if (entry) this.enterCar(entry);
+      // At a grab point the E key belongs to the grab, not to a passing car.
+      var step = G.missions.currentStep();
+      var grabbing = false;
+      if (step && step.kind === 'grab' && step.place) {
+        var pl = G.PLACES[step.place];
+        var gdx = this.x - pl.x, gdz = this.z - pl.z;
+        if (gdx * gdx + gdz * gdz < 64) grabbing = true;
+      }
+      if (!grabbing) {
+        var entry = this.nearestEnterable();
+        if (entry) this.enterCar(entry);
+      }
     }
     this.updateCamera(dt, camera, 7.5, 3.2, this.yaw, moving ? 0.4 : 0);
   };
@@ -351,6 +366,7 @@
   // Called by police when a cop car sits on the on-foot player.
   Player.prototype.policeContact = function (dt) {
     this.bustTimer += dt;
+    this._contact = true;
     if (this.bustTimer > G.TUNE.bustHoldSeconds && G.onBusted) G.onBusted();
   };
 

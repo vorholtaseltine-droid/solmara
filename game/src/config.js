@@ -16,7 +16,7 @@
 
   // Named places the missions and the minimap use. All sit beside a road.
   G.PLACES = {
-    hideout:   { x: -140, z: -140, name: "Rook's Hideout" },
+    hideout:   { x: -160, z: -160, name: "Rook's Hideout" },
     marina:    { x: 140,  z: 160,  name: 'Marina Garage' },
     oldtown:   { x: -140, z: 120,  name: 'Old Town Market' },
     tower:     { x: 20,   z: -20,  name: 'Solmara Tower' },

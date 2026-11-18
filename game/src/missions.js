@@ -186,7 +186,14 @@
         this.failStep('Out of time — the buyer walked away.');
       }
     } else if (s.kind === 'lose-heat') {
-      if (p.wanted === 0 || dist < 8) this.advanceStep();
+      if (dist < 8) {
+        // Reaching the hideout lays the player low: the heat dies.
+        p.setWanted(0);
+        if (G.hud) G.hud.say('Mara: Lay low. The heat is off — for now.');
+        this.advanceStep();
+      } else if (p.wanted === 0) {
+        this.advanceStep();
+      }
     } else if (s.kind === 'grab') {
       if (dist < 8) {
         if (input.eHeld) {
