@@ -3,17 +3,130 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Block Dodger</title>
+<title>Solmara — Open-World Crime</title>
+<link rel="icon" href="data:,">
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #11141b; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0c1116;
+    font-family: "Segoe UI", Arial, sans-serif; color: #eef1f5; }
   #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  /* Read aloud, never shown: the status line screen readers announce. */
   #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .panel { background: rgba(10, 14, 20, 0.62); border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 8px; padding: 8px 12px; }
+  /* Top-left: current objective. */
+  #hud-objective { position: fixed; top: 14px; left: 14px; max-width: 420px; z-index: 5;
+    font-size: 15px; font-weight: 600; line-height: 1.35; text-shadow: 0 1px 3px #000; }
+  /* Top-right: money, health, wanted stars. */
+  #hud-top-right { position: fixed; top: 14px; right: 14px; z-index: 5; text-align: right;
+    display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+  #hud-money { font-size: 26px; font-weight: 900; color: #7ee787; text-shadow: 0 2px 4px #000; }
+  #hud-stars { font-size: 24px; letter-spacing: 2px; text-shadow: 0 2px 4px #000; }
+  #hud-health { width: 190px; height: 14px; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 7px; overflow: hidden; position: relative; }
+  #hud-health-fill { height: 100%; width: 100%; background: #37c24a; }
+  #hud-health-text { position: absolute; inset: 0; font-size: 10px; font-weight: 700; line-height: 14px;
+    text-align: center; color: #fff; text-shadow: 0 1px 2px #000; }
+  /* Bottom-left: minimap. */
+  #hud-minimap { position: fixed; left: 14px; bottom: 14px; z-index: 5; width: 180px; height: 180px;
+    border: 2px solid rgba(255,255,255,0.35); border-radius: 50%; background: #141a21;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.6); }
+  /* Bottom-centre: dialogue. */
+  #hud-subtitle { position: fixed; left: 50%; bottom: 110px; transform: translateX(-50%); z-index: 5;
+    max-width: 640px; text-align: center; font-size: 17px; font-weight: 600; line-height: 1.4;
+    text-shadow: 0 2px 4px #000; opacity: 0; transition: opacity 0.4s; pointer-events: none; }
+  /* Bottom-right: speed and hints. */
+  #hud-speed { position: fixed; right: 16px; bottom: 52px; z-index: 5; font-size: 30px; font-weight: 900;
+    color: #fff; text-shadow: 0 2px 5px #000; display: none; }
+  #hud-hint { position: fixed; right: 16px; bottom: 16px; z-index: 5; font-size: 13px; color: #cfd6de;
+    text-shadow: 0 1px 3px #000; }
+  /* Centre: crosshair and banner. */
+  #hud-crosshair { position: fixed; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px;
+    z-index: 5; pointer-events: none; }
+  #hud-crosshair::before, #hud-crosshair::after { content: ""; position: absolute; background: #fff;
+    box-shadow: 0 0 3px #000; }
+  #hud-crosshair::before { left: 6px; top: 0; width: 2px; height: 14px; }
+  #hud-crosshair::after { left: 0; top: 6px; width: 14px; height: 2px; }
+  #hud-banner { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%); z-index: 6;
+    text-align: center; opacity: 0; transition: opacity 0.5s; pointer-events: none; }
+  #hud-banner-title { font-size: 54px; font-weight: 900; letter-spacing: 3px; color: #ffd23f;
+    text-shadow: 0 3px 0 #7a3b12, 0 6px 14px #000; font-family: "Arial Black", Arial, sans-serif; }
+  #hud-banner-sub { font-size: 20px; font-weight: 700; color: #fff; text-shadow: 0 2px 5px #000; margin-top: 4px; }
+  #hud-flash { position: fixed; inset: 0; z-index: 4; pointer-events: none; opacity: 0;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(220,30,30,0.55) 100%); }
+  /* Overlays: title, pause, busted/wasted. */
+  .overlay { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center;
+    flex-direction: column; text-align: center; background: linear-gradient(180deg, rgba(8,20,32,0.82), rgba(20,10,8,0.88)); }
+  .overlay h1 { font-family: "Arial Black", Arial, sans-serif; font-size: 84px; letter-spacing: 6px;
+    margin: 0; color: #ffd23f; text-shadow: 0 4px 0 #7a3b12, 0 8px 24px #000; }
+  .overlay h2 { font-size: 22px; font-weight: 600; color: #eaf2f8; margin: 8px 0 4px; }
+  .overlay p { max-width: 560px; font-size: 16px; line-height: 1.55; color: #cfd6de; margin: 10px 0; }
+  .overlay .controls { font-size: 14px; color: #9fb2c3; line-height: 1.9; margin: 6px 0 18px; }
+  .overlay button { font-size: 19px; font-weight: 800; padding: 12px 34px; margin: 6px; cursor: pointer;
+    color: #10151c; background: #ffd23f; border: none; border-radius: 8px; letter-spacing: 1px; }
+  .overlay button.secondary { background: #dfe6ec; }
+  .overlay button:hover { filter: brightness(1.1); }
+  #end-title { font-size: 72px; color: #e5534b; }
 </style>
 </head>
 <body>
-<canvas id="game" aria-label="Block Dodger: move the paddle left and right to dodge falling blocks and catch coins"></canvas>
+<canvas id="game" aria-label="Solmara: an open-world crime game. Drive, walk, take jobs from Mara and stay ahead of the police."></canvas>
 <p id="status" role="status" aria-live="polite"></p>
-<script type="module" src="./src/main.js"></script>
+
+<div id="hud-objective" class="panel"></div>
+<div id="hud-top-right">
+  <div id="hud-money">$50</div>
+  <div id="hud-health"><div id="hud-health-fill"></div><div id="hud-health-text">100</div></div>
+  <div id="hud-stars">☆☆☆☆☆</div>
+</div>
+<canvas id="hud-minimap" width="180" height="180"></canvas>
+<div id="hud-subtitle"></div>
+<div id="hud-speed">0 km/h</div>
+<div id="hud-hint"></div>
+<div id="hud-crosshair"></div>
+<div id="hud-banner"><div id="hud-banner-title"></div><div id="hud-banner-sub"></div></div>
+<div id="hud-flash"></div>
+
+<div id="title-screen" class="overlay">
+  <h1>SOLMARA</h1>
+  <h2>An open-world crime story in the sun</h2>
+  <p>You are Rook, a driver for hire in Solmara — a city of palm trees, fast cars and faster
+  money. Take jobs from Mara, steal what you need, and keep the Solmara PD off your back.</p>
+  <div class="controls">
+    WASD / arrows — move &amp; drive &nbsp;·&nbsp; Shift — run &nbsp;·&nbsp; Space — jump<br>
+    E — enter / exit car, hold E to grab &nbsp;·&nbsp; F — punch &nbsp;·&nbsp; Click — shoot<br>
+    Drag mouse — look around &nbsp;·&nbsp; P / Esc — pause &nbsp;·&nbsp; M — mute
+  </div>
+  <div>
+    <button id="btn-start">START</button>
+    <button id="btn-continue" class="secondary">CONTINUE</button>
+  </div>
+  <p style="font-size:13px;color:#8fa2b3">A fully original city, story and soundtrack. No real places, people or games.</p>
+</div>
+
+<div id="pause-screen" class="overlay">
+  <h1 style="font-size:56px">PAUSED</h1>
+  <p>Solmara waits for no one. Well — right now it does.</p>
+  <div>
+    <button id="btn-resume">RESUME</button>
+    <button id="btn-restart" class="secondary">RESTART MISSION</button>
+    <button id="btn-save" class="secondary">SAVE GAME</button>
+  </div>
+</div>
+
+<div id="end-screen" class="overlay">
+  <h1 id="end-title">BUSTED</h1>
+  <p id="end-sub"></p>
+  <div><button id="btn-end">GET BACK OUT THERE</button></div>
+</div>
+
+<script src="./vendor/three.min.js"></script>
+<script src="./src/config.js"></script>
+<script src="./src/audio.js"></script>
+<script src="./src/city.js"></script>
+<script src="./src/characters.js"></script>
+<script src="./src/vehicles.js"></script>
+<script src="./src/player.js"></script>
+<script src="./src/missions.js"></script>
+<script src="./src/hud.js"></script>
+<script src="./src/main.js"></script>
 </body>
 </html>
